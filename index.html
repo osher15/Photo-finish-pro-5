@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Photo Finish Pro 🏁</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#02040A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#FFD700;--gold2:#FFA500;--red:#FF2255;--green:#00FF88;
+  --blue:#00AAFF;--dark:#02040A;--panel:#080C18;--border:#141E36;
+  --text:#DDE6F8;--dim:#4A5A7A;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{height:100%;background:var(--dark);}
+body{height:100%;background:var(--dark);color:var(--text);
+  font-family:'Heebo',sans-serif;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:52px;flex-shrink:0;
+  background:linear-gradient(180deg,#0C1428,var(--dark));
+  border-bottom:1px solid var(--gold);
+  position:relative;z-index:50;
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:5px;
+  color:var(--gold);text-shadow:0 0 18px rgba(255,215,0,.5);}
+.logo span{color:#fff;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.live-badge{background:var(--red);color:#fff;font-size:9px;font-weight:900;
+  letter-spacing:2px;padding:2px 8px;border-radius:2px;animation:blink-badge 1.8s infinite;}
+@keyframes blink-badge{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── MAIN ── */
+.main{display:grid;grid-template-columns:1fr 320px;flex:1;min-height:0;overflow:hidden;}
+
+/* ── CAMERA ── */
+.cam-wrap{position:relative;background:#000;overflow:hidden;}
+#videoEl{width:100%;height:100%;object-fit:cover;display:block;}
+
+/* Finish line — draggable */
+.finish-line{
+  position:absolute;top:0;bottom:0;left:50%;width:2px;
+  background:linear-gradient(180deg,transparent,var(--gold) 15%,var(--gold) 85%,transparent);
+  box-shadow:0 0 12px var(--gold),0 0 30px rgba(255,215,0,.25);
+  cursor:ew-resize;z-index:15;touch-action:none;user-select:none;
+}
+.finish-line::after{content:'';position:absolute;top:0;bottom:0;left:-18px;right:-18px;}
+.finish-label{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:3px;
+  color:var(--gold);background:rgba(0,0,0,.7);border:1px solid rgba(255,215,0,.4);
+  padding:3px 8px;white-space:nowrap;pointer-events:none;z-index:16;
+}
+
+/* Canvases */
+#scanCanvas{display:none;}
+#overlayCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10;}
+
+/* Photo finish strip */
+.pf-strip-wrap{
+  position:absolute;bottom:0;left:0;right:0;height:90px;
+  background:rgba(0,0,0,.85);border-top:1px solid var(--border);
+  z-index:20;overflow:hidden;display:flex;align-items:stretch;
+}
+.pf-strip-label{
+  flex-shrink:0;width:44px;display:flex;align-items:center;justify-content:center;
+  writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);
+  font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:2px;
+  color:var(--gold);opacity:.7;border-right:1px solid var(--border);
+}
+#pfCanvas{flex:1;height:100%;image-rendering:pixelated;}
+
+/* Timer overlay */
+.timer-box{
+  position:absolute;top:14px;right:18px;z-index:18;
+  text-align:right;pointer-events:none;
+}
+.timer-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:3px;
+  color:var(--gold);opacity:.8;margin-bottom:3px;}
+#timerEl{
+  font-family:'Share Tech Mono',monospace;font-size:52px;line-height:1;
+  color:#fff;text-shadow:0 0 24px rgba(255,255,255,.4),2px 2px 0 rgba(0,0,0,.9);
+  background:rgba(0,0,0,.6);padding:6px 14px;border-left:3px solid var(--gold);
+  backdrop-filter:blur(6px);
+}
+#timerEl.running{animation:timer-pulse 1s ease-in-out infinite alternate;}
+@keyframes timer-pulse{
+  from{text-shadow:0 0 16px rgba(255,255,255,.2),2px 2px 0 rgba(0,0,0,.9);}
+  to{text-shadow:0 0 36px rgba(255,255,255,.7),2px 2px 0 rgba(0,0,0,.9);}
+}
+
+/* Flash */
+#flashEl{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
+  z-index:40;transition:opacity .04s;}
+#flashEl.on{opacity:.9;}
+
+/* Detection badge */
+#detBadge{
+  position:absolute;top:14px;left:18px;z-index:18;
+  display:flex;align-items:center;gap:7px;
+  background:rgba(0,255,136,.12);border:1px solid var(--green);
+  border-radius:3px;padding:5px 12px;opacity:0;transition:opacity .25s;
+  pointer-events:none;
+}
+#detBadge.on{opacity:1;}
+.det-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink-badge .6s infinite;}
+.det-txt{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--green);}
+
+/* No-camera overlay */
+#noCam{
+  position:absolute;inset:0;z-index:30;
+  background:radial-gradient(ellipse at center,#0A1020,var(--dark));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+}
+.nc-icon{font-size:60px;opacity:.35;}
+.nc-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px;color:var(--dim);}
+.nc-sub{color:var(--dim);font-size:13px;text-align:center;max-width:280px;line-height:1.7;}
+.btn-cam-start{
+  padding:12px 28px;background:linear-gradient(135deg,#1A3A6A,#0D2040);
+  border:1px solid #2244AA;color:var(--blue);font-family:'Heebo',sans-serif;
+  font-size:15px;font-weight:700;border-radius:3px;cursor:pointer;
+  transition:all .2s;letter-spacing:1px;
+}
+.btn-cam-start:hover{background:linear-gradient(135deg,#204080,#103060);
+  box-shadow:0 4px 20px rgba(0,150,255,.35);}
+
+/* ── RIGHT PANEL ── */
+.panel{
+  background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* Panel sections */
+.ps{padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.ps-title{
+  font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;
+  color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.ps-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+
+/* Status */
+.status-row{display:flex;align-items:center;gap:9px;padding:7px 11px;
+  background:rgba(0,0,0,.35);border-radius:3px;margin-bottom:10px;font-size:12px;color:var(--dim);}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--dim);}
+.sdot.ready{background:var(--green);box-shadow:0 0 8px var(--green);}
+.sdot.running{background:var(--red);box-shadow:0 0 8px var(--red);animation:blink-badge .7s infinite;}
+
+/* Buttons */
+.btn-cam{
+  width:100%;padding:11px;background:linear-gradient(135deg,#1A3A6A,#0D2040);
+  border:1px solid #2244AA;color:var(--blue);font-family:'Heebo',sans-serif;
+  font-size:13px;font-weight:700;letter-spacing:1px;border-radius:3px;cursor:pointer;
+  transition:all .2s;margin-bottom:10px;
+}
+.btn-cam:hover{background:linear-gradient(135deg,#204080,#103060);}
+.btn-cam:disabled{opacity:.45;cursor:default;}
+
+.btn-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:8px;}
+.btn{
+  padding:9px 0;border:none;border-radius:3px;font-family:'Heebo',sans-serif;
+  font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .12s;
+}
+.btn:active{transform:scale(.96);}
+.btn-s{background:linear-gradient(135deg,#00CC66,#009944);color:#fff;
+  box-shadow:0 3px 12px rgba(0,200,100,.25);}
+.btn-e{background:linear-gradient(135deg,#FF3355,#CC1133);color:#fff;
+  box-shadow:0 3px 12px rgba(255,50,80,.25);}
+.btn-r{background:linear-gradient(135deg,#2A3A5A,#151E30);color:var(--dim);
+  border:1px solid var(--border);}
+.btn-r:hover{color:#fff;}
+
+.kbd-hint{font-size:10px;color:#253348;text-align:center;letter-spacing:1px;}
+kbd{display:inline-block;background:#111A2A;border:1px solid #253348;border-radius:2px;
+  padding:1px 5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);}
+
+/* Sensitivity */
+.slider-group{margin-bottom:10px;}
+.sl-label{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:5px;}
+.sl-label strong{color:var(--text);}
+input[type=range]{
+  width:100%;height:3px;-webkit-appearance:none;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--gold);cursor:pointer;box-shadow:0 0 6px rgba(255,215,0,.5);
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;
+}
+.hint{font-size:10px;color:#2A3A50;line-height:1.5;margin-top:4px;}
+
+/* ── RESULTS LEADERBOARD ── */
+.results-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px 8px;flex-shrink:0;border-bottom:1px solid var(--border);
+}
+.rh-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;color:var(--gold);}
+.rh-right{display:flex;align-items:center;gap:8px;}
+.rh-count{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);
+  background:var(--border);padding:2px 8px;border-radius:2px;}
+.btn-clr{background:none;border:1px solid var(--border);color:var(--dim);
+  font-size:10px;padding:2px 9px;border-radius:2px;cursor:pointer;font-family:'Heebo',sans-serif;}
+.btn-clr:hover{border-color:var(--red);color:var(--red);}
+
+.results-body{flex:1;overflow-y:auto;padding:10px 14px 20px;}
+.results-body::-webkit-scrollbar{width:3px;}
+.results-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* Individual result card */
+.rc{
+  display:grid;grid-template-columns:40px 1fr auto;
+  align-items:stretch;border-radius:5px;margin-bottom:7px;
+  overflow:hidden;border:1px solid var(--border);
+  animation:rc-in .25s ease;
+}
+@keyframes rc-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.rc.p1{border-color:var(--gold);box-shadow:0 0 14px rgba(255,215,0,.12);}
+.rc.p2{border-color:#888;}
+.rc.p3{border-color:#CD7F32;}
+
+.rc-rank{
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:24px;
+  background:rgba(0,0,0,.5);flex-shrink:0;
+}
+.rc-rank.g{color:var(--gold);text-shadow:0 0 10px rgba(255,215,0,.7);}
+.rc-rank.s{color:#CCC;}
+.rc-rank.b{color:#CD7F32;}
+.rc-rank.o{color:var(--dim);font-size:17px;}
+
+.rc-info{padding:9px 11px;background:rgba(255,255,255,.025);}
+.rc-time{
+  font-family:'Share Tech Mono',monospace;font-size:24px;
+  color:#fff;line-height:1;letter-spacing:1px;
+}
+.rc-sub{font-size:9px;color:var(--dim);margin-top:3px;letter-spacing:1px;}
+
+.rc-gap{
+  padding:9px 10px;background:rgba(0,0,0,.4);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:65px;
+}
+.gap-leader{font-family:'Bebas Neue',sans-serif;font-size:10px;
+  letter-spacing:2px;color:var(--gold);}
+.gap-val{font-family:'Share Tech Mono',monospace;font-size:14px;
+  color:#FF7744;font-weight:700;margin-top:1px;}
+.gap-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;margin-top:1px;}
+
+/* Empty state */
+.empty{text-align:center;padding:36px 16px;color:var(--dim);}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:.25;}
+.empty-txt{font-size:12px;line-height:1.7;}
+
+/* Footer */
+.panel-footer{
+  padding:8px 18px;border-top:1px solid var(--border);
+  font-size:9px;color:#1E2E48;letter-spacing:1px;text-align:center;flex-shrink:0;
+}
+
+/* Toast */
+#toast{
+  position:fixed;top:60px;left:50%;
+  transform:translateX(-50%) translateY(-6px);
+  background:rgba(8,12,24,.97);border:1px solid var(--gold);
+  color:var(--gold);font-family:'Bebas Neue',sans-serif;
+  font-size:15px;letter-spacing:3px;padding:9px 26px;border-radius:3px;
+  z-index:9999;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;white-space:nowrap;
+}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Mobile */
+@media(max-width:700px){
+  html,body{overflow-y:auto;height:auto;}
+  .main{display:block;}
+  .cam-wrap{height:60vw;min-height:220px;}
+  .panel{display:block;overflow:visible;height:auto;border-right:none;border-top:1px solid var(--border);}
+  .results-body{overflow:visible;height:auto;max-height:none;padding-bottom:40px;}
+  #timerEl{font-size:36px;}
+  header{padding:0 14px;}
+  .logo{font-size:20px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PHOTO <span>FINISH</span> PRO</div>
+  <div class="hdr-right">
+    <div class="live-badge">● LIVE</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- CAMERA SECTION -->
+  <div class="cam-wrap" id="camWrap">
+    <video id="videoEl" autoplay playsinline muted></video>
+    <canvas id="scanCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+
+    <!-- finish line -->
+    <div class="finish-line" id="finishLine">
+      <div class="finish-label">◄ FINISH ►</div>
+    </div>
+
+    <!-- photo finish strip at bottom -->
+    <div class="pf-strip-wrap" id="pfWrap">
+      <div class="pf-strip-label">PHOTO FINISH</div>
+      <canvas id="pfCanvas" id="pfCanvas"></canvas>
+    </div>
+
+    <!-- timer -->
+    <div class="timer-box">
+      <div class="timer-label">ELAPSED TIME</div>
+      <div id="timerEl">00.000</div>
+    </div>
+
+    <!-- detection badge -->
+    <div id="detBadge">
+      <div class="det-dot"></div>
+      <div class="det-txt">רץ זוהה</div>
+    </div>
+
+    <!-- flash -->
+    <div id="flashEl"></div>
+
+    <!-- no camera overlay -->
+    <div id="noCam">
+      <div class="nc-icon">📷</div>
+      <div class="nc-title">Photo Finish Pro</div>
+      <div class="nc-sub">כוון את המצלמה לקו הסיום, גרור את הקו למיקום הנכון, ולחץ התחל</div>
+      <button class="btn-cam-start" onclick="startCam()">▶ הפעל מצלמה</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel">
+
+    <!-- Control -->
+    <div class="ps">
+      <div class="ps-title">שליטה</div>
+      <div class="status-row" id="statusRow">
+        <div class="sdot" id="sdot"></div>
+        <span id="statusTxt">המצלמה כבויה</span>
+      </div>
+      <button class="btn-cam" id="camBtn" onclick="startCam()">📷 הפעל מצלמה</button>
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="timerStart()">▶ התחל</button>
+        <button class="btn btn-e" onclick="timerStop()">■ עצור</button>
+        <button class="btn btn-r" onclick="timerReset()">↺ אפס</button>
+      </div>
+      <div class="kbd-hint"><kbd>S</kbd> התחל &nbsp;·&nbsp; <kbd>SPACE</kbd> רשום רץ ידני &nbsp;·&nbsp; <kbd>R</kbd> אפס</div>
+    </div>
+
+    <!-- Sensitivity -->
+    <div class="ps">
+      <div class="ps-title">רגישות זיהוי</div>
+      <div class="slider-group">
+        <div class="sl-label"><span>סף תנועה (גבוה = פחות רגיש)</span><strong id="thV">35</strong></div>
+        <input type="range" min="10" max="80" value="35" id="thSlider"
+          oninput="motionTh=+this.value;document.getElementById('thV').textContent=this.value">
+        <div class="hint">הגדל אם המצלמה מזהה רצים שאינם קיימים</div>
+      </div>
+      <div class="slider-group">
+        <div class="sl-label"><span>גודל רץ מינימלי</span><strong id="szV">25</strong>%</div>
+        <input type="range" min="8" max="50" value="25" id="szSlider"
+          oninput="runnerMinPct=+this.value;document.getElementById('szV').textContent=this.value">
+        <div class="hint">הגדל כדי לזהות רק גוף שלם</div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-header">
+      <div class="rh-title">לוח תוצאות</div>
+      <div class="rh-right">
+        <div class="rh-count" id="rCount">0/8</div>
+        <button class="btn-clr" onclick="clearResults()">נקה</button>
+      </div>
+    </div>
+
+    <div class="results-body" id="resultsBody">
+      <div class="empty" id="emptyEl">
+        <div class="empty-icon">🏁</div>
+        <div class="empty-txt">אין תוצאות עדיין<br>הפעל מצלמה ולחץ התחל</div>
+      </div>
+    </div>
+
+    <div class="panel-footer">PHOTO FINISH PRO · גרור קו פיניש · SPACE = רשום רץ ידני</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let camActive=false, stream=null;
+let timerRunning=false, timerStartTS=null, timerElapsed=0, rafId=null;
+let results=[];
+const MAX_RUNNERS=8;
+
+// Detection
+let motionTh=35;       // pixel diff threshold
+let runnerMinPct=25;   // min % width to count as runner
+let prevPixels=null;   // previous finish-line column pixels
+let inZone=false;      // is runner currently crossing?
+let confirmCount=0;    // frames of confirmed motion
+const CONFIRM_FRAMES=6;// need 6 consecutive frames before registering
+
+// Photo finish strip
+let pfScrollX=0;
+const PF_HEIGHT=88;    // strip height px
+let pfCtx=null;
+
+// Finish line position
+let flPct=50;          // % from left
+let dragging=false;
+
+// ══════════════════════════════════════════
+// ELEMENTS
+// ══════════════════════════════════════════
+const videoEl   = document.getElementById('videoEl');
+const scanCvs   = document.getElementById('scanCanvas');
+const overlayCvs= document.getElementById('overlayCanvas');
+const pfCvs     = document.getElementById('pfCanvas');
+const timerEl   = document.getElementById('timerEl');
+const sdot      = document.getElementById('sdot');
+const statusTxt = document.getElementById('statusTxt');
+const detBadge  = document.getElementById('detBadge');
+const flashEl   = document.getElementById('flashEl');
+const noCam     = document.getElementById('noCam');
+const camBtn    = document.getElementById('camBtn');
+const toastEl   = document.getElementById('toast');
+const finishLine= document.getElementById('finishLine');
+const camWrap   = document.getElementById('camWrap');
+const pfWrap    = document.getElementById('pfWrap');
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+let toastTmr=null;
+function toast(msg,dur=2200){
+  toastEl.textContent=msg;
+  toastEl.classList.add('on');
+  clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>toastEl.classList.remove('on'),dur);
+}
+
+// ══════════════════════════════════════════
+// CAMERA
+// ══════════════════════════════════════════
+async function startCam(){
+  if(camActive)return;
+  camBtn.disabled=true;camBtn.textContent='⏳ מפעיל...';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('❌ הדפדפן לא תומך במצלמה',4000);
+    camBtn.disabled=false;camBtn.textContent='📷 הפעל מצלמה';return;
+  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
+    videoEl.srcObject=stream;
+    await new Promise((res)=>{videoEl.onloadedmetadata=res;setTimeout(res,3000);});
+    await videoEl.play();
+    camActive=true;
+    noCam.style.display='none';
+    camBtn.textContent='✅ מצלמה פעילה';
+    camBtn.style.opacity='.5';camBtn.disabled=true;
+    setStatus('ready','מוכן · לחץ התחל');
+    initPhotoFinishStrip();
+    startDetection();
+    toast('📷 מצלמה פעילה');
+  }catch(e){
+    camBtn.disabled=false;camBtn.textContent='📷 הפעל מצלמה';
+    let msg='שגיאה';
+    if(e.name==='NotAllowedError')msg='❌ אנא אשר גישה למצלמה';
+    else if(e.name==='NotFoundError')msg='❌ לא נמצאה מצלמה';
+    else if(e.name==='NotReadableError')msg='❌ המצלמה בשימוש';
+    toast(msg,4000);
+  }
+}
+
+// ══════════════════════════════════════════
+// PHOTO FINISH STRIP INIT
+// ══════════════════════════════════════════
+function initPhotoFinishStrip(){
+  const w=pfWrap.clientWidth-48; // minus label
+  pfCvs.width=Math.max(1,w);
+  pfCvs.height=PF_HEIGHT;
+  pfCtx=pfCvs.getContext('2d');
+  pfCtx.fillStyle='#000';
+  pfCtx.fillRect(0,0,pfCvs.width,PF_HEIGHT);
+  pfScrollX=0;
+}
+
+// ══════════════════════════════════════════
+// DETECTION LOOP — 30fps via requestAnimationFrame
+// ══════════════════════════════════════════
+let detActive=false;
+function startDetection(){detActive=true;requestAnimationFrame(detectLoop);}
+
+function detectLoop(){
+  if(!detActive)return;
+  detectMotion();
+  requestAnimationFrame(detectLoop);
+}
+
+// ── Core: sample only 1-pixel-wide column at finish line ──
+function detectMotion(){
+  if(!camActive||videoEl.readyState<2||!videoEl.videoWidth)return;
+
+  const vw=videoEl.videoWidth,vh=videoEl.videoHeight;
+  const sampleH=64; // sample height of the column
+  const sampleW=4;  // slight width for stability
+
+  // Position: finish line X on video
+  const scanX=Math.floor(flPct/100*vw);
+  const scanW=sampleW;
+  const scanH=sampleH;
+
+  scanCvs.width=scanW;scanCvs.height=scanH;
+  const sctx=scanCvs.getContext('2d',{willReadFrequently:true});
+  sctx.drawImage(videoEl, scanX,Math.floor((vh-scanH)/2),scanW,scanH, 0,0,scanW,scanH);
+
+  let imgData;
+  try{imgData=sctx.getImageData(0,0,scanW,scanH);}catch(e){return;}
+
+  const pixels=imgData.data;
+
+  // Compute average brightness of this column
+  let totalDiff=0;
+  if(prevPixels&&prevPixels.length===pixels.length){
+    let darkPx=0;
+    for(let i=0;i<pixels.length;i+=4){
+      const diff=Math.abs(pixels[i]-prevPixels[i])
+               +Math.abs(pixels[i+1]-prevPixels[i+1])
+               +Math.abs(pixels[i+2]-prevPixels[i+2]);
+      if(diff>motionTh*3)darkPx++;
+    }
+    const totalPx=pixels.length/4;
+    const motionPct=darkPx/totalPx*100;
+
+    // Motion must exceed runnerMinPct% of the column
+    const hasRunner=motionPct>=runnerMinPct;
+
+    // Badge
+    if(motionPct>8){
+      confirmCount=Math.min(confirmCount+1,CONFIRM_FRAMES+4);
+    }else{
+      confirmCount=Math.max(confirmCount-2,0);
+    }
+    const confirmed=confirmCount>=CONFIRM_FRAMES;
+    detBadge.className=confirmed?'det-badge on':'det-badge';
+
+    // Only register on ENTRY (false→true transition)
+    if(hasRunner&&!inZone&&confirmed&&timerRunning){
+      inZone=true;
+      recordRunner();
+    }
+    if(!hasRunner)inZone=false;
+
+    // Photo finish strip: always draw the column when running
+    if(timerRunning){
+      drawPFStrip(pixels,scanW,scanH,hasRunner);
+    }
+  }
+
+  prevPixels=new Uint8ClampedArray(pixels);
+}
+
+// ══════════════════════════════════════════
+// PHOTO FINISH STRIP DRAW
+// ══════════════════════════════════════════
+function drawPFStrip(pixels,sw,sh,active){
+  if(!pfCtx)return;
+  const cw=pfCvs.width;
+
+  // Scroll left by 2px
+  const imageData=pfCtx.getImageData(2,0,cw-2,PF_HEIGHT);
+  pfCtx.putImageData(imageData,0,0);
+  pfCtx.fillStyle='#000';
+  pfCtx.fillRect(cw-2,0,2,PF_HEIGHT);
+
+  // Draw the new column (last 2px)
+  // Sample pixels from the column, map to strip height
+  const stripH=PF_HEIGHT;
+  const srcH=sh;
+  for(let y=0;y<stripH;y++){
+    const srcY=Math.floor(y/stripH*srcH);
+    const pi=(srcY*sw)*4; // first pixel of row
+    const r=pixels[pi],g=pixels[pi+1],b=pixels[pi+2];
+    pfCtx.fillStyle=`rgb(${r},${g},${b})`;
+    pfCtx.fillRect(cw-2,y,2,1);
+  }
+
+  // Mark registered runner with gold line
+  if(active&&inZone){
+    pfCtx.fillStyle='rgba(255,215,0,.6)';
+    pfCtx.fillRect(cw-2,0,2,PF_HEIGHT);
+  }
+}
+
+// ══════════════════════════════════════════
+// RECORD RUNNER — timer keeps running!
+// ══════════════════════════════════════════
+function recordRunner(method){
+  if(!timerRunning)return;
+  if(results.length>=MAX_RUNNERS){
+    toast('⚠️ מקסימום '+MAX_RUNNERS+' רצים הושג',2000);return;
+  }
+  const elapsed=performance.now()-timerStartTS;
+  // Flash
+  flashEl.classList.add('on');
+  setTimeout(()=>flashEl.classList.remove('on'),100);
+  // Mark on strip
+  if(pfCtx){
+    const cw=pfCvs.width;
+    pfCtx.fillStyle='rgba(255,215,0,.9)';
+    pfCtx.fillRect(cw-4,0,4,PF_HEIGHT);
+  }
+  const r={
+    time:elapsed,
+    fmt:fmtTime(elapsed),
+    ts:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    method:method||'אוטומטי'
+  };
+  results.push(r);
+  results.sort((a,b)=>a.time-b.time);
+  renderResults();
+  setStatus('running','רץ '+(results.length)+' נרשם · '+r.fmt);
+  toast('🏁 רץ '+results.length+': '+r.fmt,2000);
+}
+
+// ══════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════
+function timerStart(){
+  if(!camActive){toast('📷 הפעל קודם את המצלמה');return;}
+  if(timerRunning)return;
+  timerRunning=true;
+  timerStartTS=performance.now()-timerElapsed;
+  timerEl.className='running';
+  inZone=false;confirmCount=0;prevPixels=null;
+  setStatus('running','פועל · ממתין לרצים');
+  rafId=requestAnimationFrame(tickTimer);
+}
+function timerStop(){
+  if(!timerRunning)return;
+  timerRunning=false;timerElapsed=performance.now()-timerStart;
+  cancelAnimationFrame(rafId);rafId=null;
+  timerEl.className='';
+  setStatus('ready','עצר');
+}
+function timerReset(){
+  timerStop();timerElapsed=0;timerStartTS=null;
+  timerEl.textContent='00.000';timerEl.className='';
+  setStatus(camActive?'ready':'off',camActive?'מוכן':'המצלמה כבויה');
+}
+function tickTimer(){
+  if(!timerRunning)return;
+  timerEl.textContent=fmtTime(performance.now()-timerStartTS);
+  rafId=requestAnimationFrame(tickTimer);
+}
+
+// renamed to avoid conflict
+
+
+// ══════════════════════════════════════════
+// FORMAT TIME
+// ══════════════════════════════════════════
+function fmtTime(ms){
+  const s=Math.floor(ms/1000);
+  const c=Math.floor(ms%1000);
+  return String(s).padStart(2,'0')+'.'+String(c).padStart(3,'0');
+}
+function fmtGap(ms){
+  const s=Math.floor(ms/1000);
+  const c=Math.floor(ms%1000);
+  return (s>0?s+'.':''+'0.')+String(c).padStart(3,'0')+'s';
+}
+
+// ══════════════════════════════════════════
+// KEYBOARD
+// ══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();recordRunner('ידני');}
+  else if(e.code==='KeyS')timerStart();
+  else if(e.code==='KeyR')timerReset();
+  else if(e.code==='KeyC')startCam();
+});
+
+// ══════════════════════════════════════════
+// RENDER RESULTS
+// ══════════════════════════════════════════
+function renderResults(){
+  const body=document.getElementById('resultsBody');
+  const empty=document.getElementById('emptyEl');
+  document.getElementById('rCount').textContent=results.length+'/'+MAX_RUNNERS;
+  if(!results.length){body.innerHTML='';body.appendChild(empty);return;}
+  empty.remove&&empty.remove();
+  body.innerHTML='';
+  const medals=['p1','p2','p3'];
+  const syms=['🥇','🥈','🥉'];
+  const rankCls=['g','s','b'];
+  const best=results[0].time;
+  results.forEach((r,i)=>{
+    const mc=i<3?medals[i]:'';
+    const rc=i<3?rankCls[i]:'o';
+    const sym=i<3?syms[i]:(i+1);
+    const isFirst=i===0;
+    const gapMs=r.time-best;
+    const gapHtml=isFirst
+      ?'<div class="gap-leader">🏆 מוביל</div>'
+      :`<div class="gap-val">+${fmtGap(gapMs)}</div><div class="gap-lbl">פיגור</div>`;
+    const card=document.createElement('div');
+    card.className='rc '+mc;
+    card.innerHTML=`
+      <div class="rc-rank ${rc}">${sym}</div>
+      <div class="rc-info">
+        <div class="rc-time">${r.fmt}</div>
+        <div class="rc-sub">מקום ${i+1} · ${r.ts} · ${r.method}</div>
+      </div>
+      <div class="rc-gap">${gapHtml}</div>
+    `;
+    body.appendChild(card);
+  });
+}
+function clearResults(){results=[];renderResults();toast('🗑 תוצאות נוקו');}
+
+// ══════════════════════════════════════════
+// STATUS
+// ══════════════════════════════════════════
+function setStatus(s,t){
+  statusTxt.textContent=t;
+  sdot.className='sdot';
+  if(s==='ready')sdot.classList.add('ready');
+  if(s==='running')sdot.classList.add('running');
+}
+
+// ══════════════════════════════════════════
+// FINISH LINE DRAG — Pointer Events
+// ══════════════════════════════════════════
+function clampPct(x){
+  const r=camWrap.getBoundingClientRect();
+  return Math.max(5,Math.min(95,(x-r.left)/r.width*100));
+}
+finishLine.addEventListener('pointerdown',e=>{
+  dragging=true;finishLine.setPointerCapture(e.pointerId);e.preventDefault();
+});
+finishLine.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  flPct=clampPct(e.clientX);
+  finishLine.style.left=flPct+'%';
+});
+finishLine.addEventListener('pointerup',()=>dragging=false);
+finishLine.addEventListener('pointercancel',()=>dragging=false);
+
+// ══════════════════════════════════════════
+// OVERLAY — draw zone on camera
+// ══════════════════════════════════════════
+new ResizeObserver(()=>{
+  overlayCvs.width=camWrap.offsetWidth;
+  overlayCvs.height=camWrap.offsetHeight;
+  drawOverlay();
+}).observe(camWrap);
+
+function drawOverlay(){
+  const ctx=overlayCvs.getContext('2d');
+  const w=overlayCvs.width,h=overlayCvs.height;
+  ctx.clearRect(0,0,w,h);
+  if(!timerRunning)return;
+  // Highlight finish zone
+  const fx=flPct/100*w;
+  const zw=6;
+  ctx.fillStyle='rgba(255,215,0,.08)';
+  ctx.fillRect(fx-zw/2,0,zw,h);
+}
+setInterval(drawOverlay,500);
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+renderResults();
+
+
+</script>
+</body>
+</html>
