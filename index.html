@@ -136,11 +136,15 @@
   #toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-8px);background:rgba(10,15,30,.96);border:1px solid var(--gold);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;padding:10px 28px;border-radius:3px;z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media(max-width:700px){
-    .main{grid-template-columns:1fr;grid-template-rows:55vw 1fr;}
+    html,body{overflow:auto;}
+    .main{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;min-height:0;}
+    .camera-section{height:56vw;min-height:200px;}
+    .panel{overflow:visible;height:auto;}
+    .results-list{overflow:visible;height:auto;min-height:0;max-height:none;}
     .timer-display{font-size:36px;}
     header{padding:8px 14px;}
     .header-logo{font-size:22px;}
-    .panel{overflow-y:auto;}
+    .btn-manual{font-size:11px;padding:5px 10px;}
   }
 </style>
 </head>
