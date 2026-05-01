@@ -137,10 +137,11 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media(max-width:700px){
     html,body{overflow:auto;}
-    .main{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;min-height:0;}
-    .camera-section{height:56vw;min-height:200px;}
-    .panel{overflow:visible;height:auto;}
-    .results-list{overflow:visible;height:auto;min-height:0;max-height:none;}
+    .main{display:block;flex:none;}
+    .camera-section{height:56vw;min-height:220px;position:relative;}
+    .panel{display:block;overflow:visible;height:auto;border-right:none;border-top:1px solid var(--border);}
+    .panel-section{border-bottom:1px solid var(--border);}
+    .results-list{overflow:visible;height:auto;max-height:none;padding-bottom:30px;}
     .timer-display{font-size:36px;}
     header{padding:8px 14px;}
     .header-logo{font-size:22px;}
@@ -450,18 +451,19 @@ function drawOverlay(runners,numCols){
   ctx.fillStyle='rgba(255,215,0,.06)';ctx.fillRect(fzS,0,fzW,dh);
 }
 
-// ── Record finish ──
+// ── Record finish — טיימר ממשיך, רק רושם זמן ──
 function recordFinish(method){
   if(!timerRunning)return;
   const elapsed=performance.now()-timerStartTime;
-  stopTimer();
   flashEl.classList.add('active');setTimeout(()=>flashEl.classList.remove('active'),120);
   const r={time:elapsed,formatted:formatTime(elapsed),
     ts:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
     method:method||'אוטומטי'};
-  results.push(r);results.sort((a,b)=>a.time-b.time);
-  renderResults();setStatus('ready','✓ חצייה: '+r.formatted);
-  toast('🏁 '+r.formatted,2500);
+  results.push(r);
+  results.sort((a,b)=>a.time-b.time);
+  renderResults();
+  setStatus('running','רץ '+results.length+' נרשם: '+r.formatted);
+  toast('🏁 רץ '+results.length+': '+r.formatted,2000);
 }
 
 // ── Results ──
